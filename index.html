@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>2025 Quarterly Tax Calculator</title>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background: #f4f4f9; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: #333; }
+        label { display: block; margin: 15px 0 5px; font-weight: 600; color: #555; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        button { width: 100%; margin-top: 20px; padding: 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+        button:hover { background: #1d4ed8; }
+        .result-box { margin-top: 25px; padding: 20px; background: #eff6ff; border-radius: 8px; border-left: 5px solid #2563eb; }
+        .line-item { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .total { font-weight: bold; border-top: 1px solid #cbd5e1; padding-top: 8px; margin-top: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>2025 Quarterly Tax Estimator</h2>
+    
+    <label>Filing Status</label>
+    <select id="status">
+        <option value="Single">Single</option>
+        <option value="Married">Married Filing Jointly</option>
+        <option value="Head">Head of Household</option>
+    </select>
+
+    <label>W-2 Income (Salary)</label>
+    <input type="number" id="w2Income" placeholder="0">
+
+    <label>W-2 Withholding (Taxes Paid)</label>
+    <input type="number" id="w2Withheld" placeholder="0">
+
+    <label>Business Income (1099)</label>
+    <input type="number" id="bizIncome" placeholder="0">
+
+    <label>Business Expenses</label>
+    <input type="number" id="bizExp" placeholder="0">
+
+    <button onclick="calculateTax()">Calculate Est. Payment</button>
+
+    <div id="results" class="result-box" style="display:none;">
+        <div class="line-item"><span>Net Business Income:</span> <span id="r_netBiz"></span></div>
+        <div class="line-item"><span>Taxable Income:</span> <span id="r_taxable"></span></div>
+        <div class="line-item"><span>Self-Employment Tax:</span> <span id="r_seTax"></span></div>
+        <div class="line-item"><span>Federal Income Tax:</span> <span id="r_fedTax"></span></div>
+        <div class="line-item total"><span>Total Tax Liability:</span> <span id="r_totalTax"></span></div>
+        <div class="line-item"><span>- W2 Withholding:</span> <span id="r_withheld"></span></div>
+        <div class="line-item total" style="color:#2563eb; font-size: 1.1em;"><span>Quarterly Payment:</span> <span id="r_final"></span></div>
+    </div>
+</div>
+
+<script>
+function calculateTax() {
+    // 1. Get Inputs
+    const status = document.getElementById('status').value;
+    const w2Inc = parseFloat(document.getElementById('w2Income').value) || 0;
+    const w2Wh = parseFloat(document.getElementById('w2Withheld').value) || 0;
+    const bizInc = parseFloat(document.getElementById('bizIncome').value) || 0;
+    const bizExp = parseFloat(document.getElementById('bizExp').value) || 0;
+
+    // 2. Constants (2025)
+    const stdDed = { "Single": 15000, "Married": 30000, "Head": 23625 };
+    
+    // 3. Logic
+    const netBiz = Math.max(0, bizInc - bizExp);
+    
+    // SE Tax
+    const taxableSe = netBiz * 0.9235;
+    const ssTax = Math.min(taxableSe, Math.max(0, 176100 - w2Inc)) * 0.124;
+    const medTax = taxableSe * 0.029;
+    const seTaxTotal = ssTax + medTax;
+
+    // Taxable Income
+    const seDed = seTaxTotal * 0.5;
+    const qbi = Math.min(netBiz * 0.2, (w2Inc + netBiz - seDed - stdDed[status]) * 0.2); // Simplified QBI
+    const taxableInc = Math.max(0, w2Inc + netBiz - seDed - Math.max(0, qbi) - stdDed[status]);
+
+    // Federal Tax (Simplified Brackets 2025 for Single/Married)
+    let fedTax = 0;
+    // Note: This is a simplified linear approximation for the JS demo
+    if (status === "Single") {
+        if (taxableInc > 626350) fedTax += (taxableInc - 626350)*0.37 + 188769;
+        else if (taxableInc > 250525) fedTax += (taxableInc - 250525)*0.35 + 57231;
+        else if (taxableInc > 197300) fedTax += (taxableInc - 197300)*0.32 + 40199;
+        else if (taxableInc > 103350) fedTax += (taxableInc - 103350)*0.24 + 17651;
+        else if (taxableInc > 48475) fedTax += (taxableInc - 48475)*0.22 + 5578;
+        else if (taxableInc > 11925) fedTax += (taxableInc - 11925)*0.12 + 1192;
+        else fedTax += taxableInc * 0.10;
+    } else {
+        // Married Joint (Rough Approx)
+        if (taxableInc > 751600) fedTax += (taxableInc - 751600)*0.37 + 223960; // Approx
+        else if (taxableInc > 501050) fedTax += (taxableInc - 501050)*0.35 + 136267;
+        else if (taxableInc > 394600) fedTax += (taxableInc - 394600)*0.32 + 102203;
+        else if (taxableInc > 206700) fedTax += (taxableInc - 206700)*0.24 + 57107;
+        else if (taxableInc > 96950) fedTax += (taxableInc - 96950)*0.22 + 10952;
+        else if (taxableInc > 23850) fedTax += (taxableInc - 23850)*0.12 + 2385;
+        else fedTax += taxableInc * 0.10;
+    }
+
+    const totalTax = fedTax + seTaxTotal;
+    const payment = Math.max(0, (totalTax - w2Wh) / 4);
+
+    // 4. Display
+    document.getElementById('r_netBiz').innerText = "$" + netBiz.toLocaleString(undefined, {minimumFractionDigits: 2});
+    document.getElementById('r_taxable').innerText = "$" + taxableInc.toLocaleString(undefined, {minimumFractionDigits: 2});
+    document.getElementById('r_seTax').innerText = "$" + seTaxTotal.toLocaleString(undefined, {minimumFractionDigits: 2});
+    document.getElementById('r_fedTax').innerText = "$" + fedTax.toLocaleString(undefined, {minimumFractionDigits: 2});
+    document.getElementById('r_totalTax').innerText = "$" + totalTax.toLocaleString(undefined, {minimumFractionDigits: 2});
+    document.getElementById('r_withheld').innerText = "-$" + w2Wh.toLocaleString(undefined, {minimumFractionDigits: 2});
+    document.getElementById('r_final').innerText = "$" + payment.toLocaleString(undefined, {minimumFractionDigits: 2});
+    
+    document.getElementById('results').style.display = 'block';
+}
+</script>
+
+</body>
+</html>
